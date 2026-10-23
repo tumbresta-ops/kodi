@@ -1,0 +1,23 @@
+name: Save ccache
+description: >
+  Prints ccache statistics and saves the cache under a per-commit key.
+inputs:
+  key:
+    description: Cache key prefix, identical to the one given to ccache-restore.
+    required: true
+  save:
+    description: Whether to save ("true"/"false"). Statistics are printed regardless.
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Show ccache stats
+      shell: bash
+      run: ccache -s || true
+
+    - name: Save ccache
+      if: inputs.save == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ env.CCACHE_DIR }}
+        key: ${{ inputs.key }}-ccache-${{ github.sha }}

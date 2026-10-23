@@ -1,0 +1,192 @@
+name: Build Kodi (Android)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_abi:
+        description: 'Target Android ABI (arm64-v8a, armeabi-v7a, or all)'
+        required: true
+        type: choice
+        default: 'arm64-v8a'
+        options:
+          - 'arm64-v8a'
+          - 'armeabi-v7a'
+          - 'all'
+      configuration:
+        description: 'Build configuration (Release or Debug)'
+        required: true
+        type: choice
+        default: 'Release'
+        options:
+          - 'Release'
+          - 'Debug'
+      kodi_repo:
+        description: 'Upstream Kodi repository to clone'
+        required: false
+        type: string
+        default: 'xbmc/xbmc'
+      kodi_ref:
+        description: 'Upstream branch/ref to clone'
+        required: false
+        type: string
+        default: 'Piers'
+      build_binary_addons:
+        description: 'Build binary addons (e.g. peripheral.joystick)'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '.github/workflows/build-android.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/build-android.yml'
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  NDK_VERSION: "28.2.13676358"
+  DEPENDS_PREFIX: /home/runner/xbmc-android-depends
+
+jobs:
+  define-matrix:
+    name: Prepare Android build matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Calculate ABI matrix
+        id: set-matrix
+        run: |
+          TARGET="${{ inputs.target_abi || 'arm64-v8a' }}"
+          if [ "$TARGET" = "all" ]; then
+            LEGS='[{"abi":"arm64-v8a","host":"aarch64-linux-android"},{"abi":"armeabi-v7a","host":"arm-linux-androideabi"}]'
+          elif [ "$TARGET" = "armeabi-v7a" ]; then
+            LEGS='[{"abi":"armeabi-v7a","host":"arm-linux-androideabi"}]'
+          else
+            LEGS='[{"abi":"arm64-v8a","host":"aarch64-linux-android"}]'
+          fi
+          echo "matrix=$LEGS" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Android (${{ matrix.abi }})
+    needs: define-matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
+
+    env:
+      BUILD_CONFIG: ${{ inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout workflow actions
+        uses: actions/checkout@v4
+
+      - name: Checkout Kodi source tree
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.kodi_repo || 'xbmc/xbmc' }}
+          ref: ${{ inputs.kodi_ref || 'Piers' }}
+          path: kodi
+
+      - name: Setup Android build environment
+        uses: ./.github/actions/setup-android-build
+
+      - name: Restore ccache
+        uses: ./.github/actions/ccache-restore
+        with:
+          key: android-${{ matrix.abi }}-${{ env.BUILD_CONFIG }}
+
+      - name: Restore depends cache
+        id: cache-depends
+        uses: ./.github/actions/depends-cache-restore
+        with:
+          kodi-dir: kodi
+          key: android-${{ matrix.abi }}-${{ env.BUILD_CONFIG }}
+          prefix: ${{ env.DEPENDS_PREFIX }}
+
+      - name: Build tools/depends (on cache miss)
+        if: steps.cache-depends.outputs.cache-hit != 'true'
+        uses: ./.github/actions/configure-depends
+        with:
+          kodi-dir: kodi
+          prefix: ${{ env.DEPENDS_PREFIX }}
+          configure-args: >-
+            --host=${{ matrix.host }}
+            --with-sdk-path=${{ env.ANDROID_SDK_ROOT }}
+            --with-ndk-path=${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.BUILD_CONFIG == 'Release' && '--disable-debug' || '' }}
+          build: "true"
+
+      - name: Save depends cache
+        if: steps.cache-depends.outputs.cache-hit != 'true'
+        uses: ./.github/actions/depends-cache-save
+        with:
+          kodi-dir: kodi
+          key: android-${{ matrix.abi }}-${{ env.BUILD_CONFIG }}
+          prefix: ${{ env.DEPENDS_PREFIX }}
+
+      - name: Re-run depends configure (toolchain sync on cache hit)
+        if: steps.cache-depends.outputs.cache-hit == 'true'
+        uses: ./.github/actions/configure-depends
+        with:
+          kodi-dir: kodi
+          prefix: ${{ env.DEPENDS_PREFIX }}
+          configure-args: >-
+            --host=${{ matrix.host }}
+            --with-sdk-path=${{ env.ANDROID_SDK_ROOT }}
+            --with-ndk-path=${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.BUILD_CONFIG == 'Release' && '--disable-debug' || '' }}
+          build: "false"
+
+      - name: Generate Kodi CMake build system
+        working-directory: kodi
+        run: make -C tools/depends/target/cmakebuildsys
+
+      - name: Build Kodi
+        working-directory: kodi
+        run: make -j"$(nproc)" -C build
+
+      - name: Setup Android debug keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -keystore ~/.android/debug.keystore -v -alias androiddebugkey \
+            -dname "CN=Android Debug,O=Android,C=US" -keypass android -storepass android \
+            -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Package APK
+        working-directory: kodi
+        run: |
+          make -C build apk
+          mkdir -p "${{ github.workspace }}/dist-apk"
+          find . -name "*.apk" -exec cp {} "${{ github.workspace }}/dist-apk/" \;
+          ls -la "${{ github.workspace }}/dist-apk"
+
+      - name: Build binary addons
+        if: ${{ inputs.build_binary_addons == true }}
+        uses: ./.github/actions/build-binary-addons
+        with:
+          kodi-dir: kodi
+          addons: peripheral.joystick
+
+      - name: Save ccache
+        if: always()
+        uses: ./.github/actions/ccache-save
+        with:
+          key: android-${{ matrix.abi }}-${{ env.BUILD_CONFIG }}
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodi-android-${{ matrix.abi }}
+          path: dist-apk/*.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,219 @@
+name: Build Kodi (Linux)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_platform:
+        description: 'Target windowing platform (x11, wayland, gbm, or all)'
+        required: true
+        type: choice
+        default: 'x11'
+        options:
+          - 'x11'
+          - 'wayland'
+          - 'gbm'
+          - 'all'
+      configuration:
+        description: 'Build configuration (Release or Debug)'
+        required: true
+        type: choice
+        default: 'Release'
+        options:
+          - 'Release'
+          - 'Debug'
+      kodi_repo:
+        description: 'Upstream Kodi repository to clone'
+        required: false
+        type: string
+        default: 'xbmc/xbmc'
+      kodi_ref:
+        description: 'Upstream branch/ref to clone'
+        required: false
+        type: string
+        default: 'Piers'
+      build_binary_addons:
+        description: 'Build binary addons (e.g. peripheral.joystick)'
+        required: false
+        type: boolean
+        default: true
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '.github/workflows/build-linux.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/build-linux.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  define-matrix:
+    name: Prepare build matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Calculate matrix platforms
+        id: set-matrix
+        run: |
+          TARGET="${{ inputs.target_platform || 'x11' }}"
+          if [ "$TARGET" = "all" ]; then
+            PLATFORMS='["x11", "wayland", "gbm"]'
+          else
+            PLATFORMS="[\"$TARGET\"]"
+          fi
+          echo "matrix=$PLATFORMS" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Linux (${{ matrix.platform }})
+    needs: define-matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
+        include:
+          - platform: x11
+            render: gl
+            packages: >-
+              build-essential cmake gawk gperf gettext libtool meson nasm
+              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
+              dpkg-dev fakeroot lsb-release
+              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
+              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
+              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
+              libtinyxml-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
+              libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
+              libunistring-dev libspdlog-dev libtinyxml2-dev libcrossguid-dev
+              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
+              libgl-dev libegl-dev libegl1-mesa-dev libglu1-mesa-dev libgl1-mesa-dri
+              libx11-dev libxext-dev libxrandr-dev
+            cmake_flags: >-
+              -DCORE_PLATFORM_NAME=x11
+              -DAPP_RENDER_SYSTEM=gl
+              -DENABLE_INTERNAL_FFMPEG=ON
+              -DENABLE_INTERNAL_TAGLIB=ON
+              -DENABLE_INTERNAL_SWIG=ON
+              -DENABLE_INTERNAL_FLATBUFFERS=ON
+              -DENABLE_INTERNAL_DAV1D=ON
+              -DENABLE_INTERNAL_CROSSGUID=ON
+
+          - platform: wayland
+            render: gles
+            packages: >-
+              build-essential cmake gawk gperf gettext libtool meson nasm
+              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
+              dpkg-dev fakeroot lsb-release
+              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
+              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
+              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
+              libtinyxml-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
+              libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
+              libunistring-dev libspdlog-dev libtinyxml2-dev libcrossguid-dev
+              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
+              libgbm-dev libwayland-dev wayland-protocols waylandpp-dev
+              libxkbcommon-dev libegl-dev libgles2-mesa-dev libgl1-mesa-dri
+            cmake_flags: >-
+              -DCORE_PLATFORM_NAME=wayland
+              -DAPP_RENDER_SYSTEM=gles
+              -DENABLE_INTERNAL_FFMPEG=ON
+              -DENABLE_INTERNAL_TAGLIB=ON
+              -DENABLE_INTERNAL_SWIG=ON
+              -DENABLE_INTERNAL_FLATBUFFERS=ON
+              -DENABLE_INTERNAL_DAV1D=ON
+              -DENABLE_INTERNAL_CROSSGUID=ON
+
+          - platform: gbm
+            render: gles
+            packages: >-
+              build-essential cmake gawk gperf gettext libtool meson nasm
+              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
+              dpkg-dev fakeroot lsb-release
+              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
+              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
+              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
+              libtinyxml-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
+              libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
+              libunistring-dev libspdlog-dev libtinyxml2-dev libcrossguid-dev
+              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
+              libxkbcommon-dev libegl-dev libegl1 libegl-mesa0 libgles2-mesa-dev
+              libgl1-mesa-dri libinput-dev libudev-dev libdisplay-info-dev libgbm-dev
+            cmake_flags: >-
+              -DCORE_PLATFORM_NAME=gbm
+              -DAPP_RENDER_SYSTEM=gles
+              -DENABLE_INTERNAL_FFMPEG=ON
+              -DENABLE_INTERNAL_TAGLIB=ON
+              -DENABLE_INTERNAL_SWIG=ON
+              -DENABLE_INTERNAL_FLATBUFFERS=ON
+              -DENABLE_INTERNAL_DAV1D=ON
+              -DENABLE_INTERNAL_CROSSGUID=ON
+
+    env:
+      BUILD_CONFIG: ${{ inputs.configuration || 'Release' }}
+
+    steps:
+      - name: Checkout workflow actions
+        uses: actions/checkout@v4
+
+      - name: Checkout Kodi source tree
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.kodi_repo || 'xbmc/xbmc' }}
+          ref: ${{ inputs.kodi_ref || 'Piers' }}
+          path: kodi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # shellcheck disable=SC2086
+          sudo apt-get install -y ${{ matrix.packages }}
+
+      - name: Restore ccache
+        uses: ./.github/actions/ccache-restore
+        with:
+          key: linux-${{ matrix.platform }}-${{ runner.arch }}-${{ env.BUILD_CONFIG }}
+
+      - name: Configure CMake
+        run: |
+          cmake -S kodi -B build \
+            -DCMAKE_BUILD_TYPE="${BUILD_CONFIG}" \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCPACK_GENERATOR=DEB \
+            ${{ matrix.cmake_flags }}
+
+      - name: Build Kodi
+        run: cmake --build build -- -j"$(nproc)"
+
+      - name: Build binary addons
+        if: ${{ inputs.build_binary_addons != false }}
+        uses: ./.github/actions/build-binary-addons
+        with:
+          kodi-dir: kodi
+          addons: peripheral.joystick
+          make-args: PREFIX=${{ github.workspace }}/build-addons
+
+      - name: Package with CPack (.deb)
+        working-directory: build
+        run: |
+          cpack
+          mkdir -p "${{ github.workspace }}/dist"
+          find . -name "*.deb" -exec cp {} "${{ github.workspace }}/dist/" \;
+          ls -la "${{ github.workspace }}/dist"
+
+      - name: Save ccache
+        if: always()
+        uses: ./.github/actions/ccache-save
+        with:
+          key: linux-${{ matrix.platform }}-${{ runner.arch }}-${{ env.BUILD_CONFIG }}
+
+      - name: Upload Debian packages (.deb)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodi-deb-linux-${{ matrix.platform }}-${{ runner.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 14

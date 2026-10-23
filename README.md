@@ -7,6 +7,14 @@ Repositori ini adalah **CI Workflow Runner** untuk mengompilasi **Kodi** langsun
 - [`.github/workflows/build-linux.yml`](.github/workflows/build-linux.yml): Workflow build Kodi Linux (x11, wayland, gbm).
 - [`.github/workflows/build-android.yml`](.github/workflows/build-android.yml): Workflow build Kodi Android (arm64-v8a / arm8a dan armeabi-v7a / arm7a).
 
+### Composite Actions Modular (`.github/actions/`):
+- `ccache-restore`: Restore cache kompilasi C++ berbasis hash commit/platform.
+- `ccache-save`: Save cache kompilasi C++ agar kompilasi berikutnya cepat (~5-10 menit).
+- `build-binary-addons`: Membangun binary addon (contoh: `peripheral.joystick`) dan pelaporan ke GitHub Step Summary.
+- `setup-android-build`: Setup toolchain host, Android SDK 37, dan NDK r28c (`28.2.13676358`).
+- `configure-depends`: Bootstrap dan configure dependensi Android (`tools/depends`).
+- `depends-cache-restore` & `depends-cache-save`: Cache dependensi Android yang telah dikompilasi.
+
 ---
 
 ## 1. Target Linux (Target Pertama)
