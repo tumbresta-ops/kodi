@@ -96,7 +96,8 @@ jobs:
               libbluray-dev libbluetooth-dev libudev-dev libavahi-client-dev
               libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
               libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev
+              libxslt1-dev libudfread-dev libplist-dev libiso9660++-dev libiso9660-dev
+              libp8-platform-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=x11
               -DAPP_RENDER_SYSTEM=gl
@@ -106,6 +107,7 @@ jobs:
               -DENABLE_INTERNAL_FLATBUFFERS=ON
               -DENABLE_INTERNAL_DAV1D=ON
               -DENABLE_INTERNAL_CROSSGUID=ON
+              -DENABLE_INTERNAL_CEC=ON
 
           - platform: wayland
             render: gles
@@ -126,7 +128,8 @@ jobs:
               libbluray-dev libbluetooth-dev libudev-dev libavahi-client-dev
               libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
               libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev
+              libxslt1-dev libudfread-dev libplist-dev libiso9660++-dev libiso9660-dev
+              libp8-platform-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=wayland
               -DAPP_RENDER_SYSTEM=gles
@@ -136,6 +139,7 @@ jobs:
               -DENABLE_INTERNAL_FLATBUFFERS=ON
               -DENABLE_INTERNAL_DAV1D=ON
               -DENABLE_INTERNAL_CROSSGUID=ON
+              -DENABLE_INTERNAL_CEC=ON
 
           - platform: gbm
             render: gles
@@ -156,7 +160,8 @@ jobs:
               libbluray-dev libbluetooth-dev libavahi-client-dev
               libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
               libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev
+              libxslt1-dev libudfread-dev libplist-dev libiso9660++-dev libiso9660-dev
+              libp8-platform-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=gbm
               -DAPP_RENDER_SYSTEM=gles
@@ -166,6 +171,7 @@ jobs:
               -DENABLE_INTERNAL_FLATBUFFERS=ON
               -DENABLE_INTERNAL_DAV1D=ON
               -DENABLE_INTERNAL_CROSSGUID=ON
+              -DENABLE_INTERNAL_CEC=ON
 
     env:
       BUILD_CONFIG: ${{ inputs.configuration || 'Release' }}
