@@ -1,0 +1,45 @@
+# Kodi CI Builder
+
+Repositori ini adalah **CI Workflow Runner** untuk mengompilasi **Kodi** langsung dari upstream resmi [`xbmc/xbmc`](https://github.com/xbmc/xbmc) branch `Piers` tanpa perlu melakukan fork pada seluruh kode sumber Kodi.
+
+## File yang Tersedia
+
+- [`.github/workflows/build-linux.yml`](.github/workflows/build-linux.yml): Workflow build Kodi Linux (x11, wayland, gbm).
+- [`.github/workflows/build-android.yml`](.github/workflows/build-android.yml): Workflow build Kodi Android (arm64-v8a / arm8a dan armeabi-v7a / arm7a).
+
+---
+
+## 1. Target Linux (Target Pertama)
+
+### Platform yang Didukung:
+- **`x11`**: OpenGL desktop (`gl`)
+- **`wayland`**: OpenGL ES (`gles`)
+- **`gbm`**: DRM/KMS direct rendering (`gles`)
+
+### Output Build:
+Paket installer Debian (`.deb`) yang dapat diinstal langsung di Ubuntu/Debian (`kodi_*.deb` dan `kodi-bin_*.deb`). Hasil build diunggah otomatis ke **GitHub Artifacts** (retensi 14 hari).
+
+---
+
+## 2. Target Android (Target Kedua)
+
+### Arsitektur yang Didukung:
+- **`arm64-v8a`** (ARM 64-bit / arm8a)
+- **`armeabi-v7a`** (ARM 32-bit / arm7a)
+
+### Output Build:
+Paket aplikasi Android (`.apk`) siap pasang.
+
+---
+
+## Cara Menjalankan Build
+
+1. Buka tab **Actions** di repositori ini (`https://github.com/tumbresta-ops/kodi/actions`).
+2. Pilih workflow **Build Kodi (Linux)** atau **Build Kodi (Android)**.
+3. Klik tombol **Run workflow**.
+4. Parameter yang dapat dipilih:
+   - `target_platform`: `x11`, `wayland`, `gbm`, atau `all`.
+   - `configuration`: `Release` atau `Debug`.
+   - `kodi_repo`: Default `xbmc/xbmc`.
+   - `kodi_ref`: Default `Piers`.
+5. Setelah build selesai, unduh file `.deb` atau `.apk` dari bagian **Artifacts**.
