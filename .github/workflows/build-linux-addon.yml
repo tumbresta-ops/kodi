@@ -1,0 +1,118 @@
+name: Build Binary Add-ons (Linux Test)
+
+on:
+  workflow_dispatch:
+    inputs:
+      addons:
+        description: 'Add-ons to build (e.g. "all", "peripheral.joystick", "inputstream.adaptive", "pvr.*")'
+        required: true
+        type: string
+        default: 'peripheral.joystick inputstream.adaptive'
+      package_zip:
+        description: 'Package addons as individual ZIP files'
+        required: false
+        type: boolean
+        default: false
+      kodi_repo:
+        description: 'Upstream Kodi repository'
+        required: false
+        type: string
+        default: 'xbmc/xbmc'
+      kodi_ref:
+        description: 'Upstream Kodi branch/ref'
+        required: false
+        type: string
+        default: 'Piers'
+
+permissions:
+  contents: read
+
+jobs:
+  build-addons:
+    name: Build Binary Add-ons (${{ inputs.addons }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Kodi
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.kodi_repo || 'xbmc/xbmc' }}
+          ref: ${{ inputs.kodi_ref || 'Piers' }}
+          path: kodi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config git ccache gettext zip unzip curl gawk bison \
+            libtool automake autoconf nasm python3-dev \
+            libgl-dev libegl-dev libdrm-dev libx11-dev libasound2-dev libpulse-dev \
+            libarchive-dev libglm-dev libjsoncpp-dev libbrotli-dev libxml2-dev libxslt1-dev \
+            zlib1g-dev libcurl4-openssl-dev libssl-dev libtinyxml-dev libtinyxml2-dev \
+            libflatbuffers-dev libfmt-dev libspdlog-dev libflac-dev libvorbis-dev libogg-dev \
+            libmad0-dev libp8-platform-dev tree
+
+      - name: Restore ccache
+        uses: ./.github/actions/ccache-restore
+        with:
+          key: linux-binary-addons-${{ runner.arch }}
+
+      - name: Setup output directory
+        run: |
+          mkdir -p "${{ github.workspace }}/addons-dest"
+
+      - name: Build binary add-ons
+        shell: bash
+        working-directory: kodi
+        run: |
+          echo "=============================================="
+          echo "Building Binary Add-ons: ${{ inputs.addons }}"
+          echo "Package ZIP: ${{ inputs.package_zip }}"
+          echo "=============================================="
+
+          export MAKEFLAGS="-j$(nproc)"
+          
+          PACKAGE_ARG=""
+          if [ "${{ inputs.package_zip }}" = "true" ]; then
+            PACKAGE_ARG="PACKAGE=1"
+          fi
+
+          # Jalankan make target binary-addons
+          make -C tools/depends/target/binary-addons \
+            ADDONS="${{ inputs.addons }}" \
+            PREFIX="${{ github.workspace }}/addons-dest" \
+            ${PACKAGE_ARG} \
+            V=1 VERBOSE=1 || true
+
+      - name: Inspect built add-ons
+        shell: bash
+        run: |
+          echo "=== Summary of built files in addons-dest ==="
+          if [ -d "${{ github.workspace }}/addons-dest" ]; then
+            tree -L 4 "${{ github.workspace }}/addons-dest" || ls -laR "${{ github.workspace }}/addons-dest"
+          else
+            echo "addons-dest directory not found!"
+          fi
+
+          if [ "${{ inputs.package_zip }}" = "true" ]; then
+            echo "=== Searching for ZIP archives ==="
+            find kodi/tools/depends/target/binary-addons -name "*.zip" -exec cp -v {} "${{ github.workspace }}/addons-dest/" \; || true
+          fi
+
+      - name: Save ccache
+        if: always()
+        uses: ./.github/actions/ccache-save
+        with:
+          key: linux-binary-addons-${{ runner.arch }}
+
+      - name: Upload built binary add-ons
+        uses: actions/upload-artifact@v4
+        with:
+          name: kodi-binary-addons-linux
+          path: ${{ github.workspace }}/addons-dest/
+          if-no-files-found: warn
+          retention-days: 14
