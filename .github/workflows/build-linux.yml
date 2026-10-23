@@ -92,6 +92,11 @@ jobs:
               libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
               libgl-dev libegl-dev libegl1-mesa-dev libglu1-mesa-dev libgl1-mesa-dri
               libx11-dev libxext-dev libxrandr-dev
+              libva-dev libvdpau-dev libpipewire-0.3-dev libpulse-dev libcec-dev
+              libbluray-dev libbluetooth-dev libudev-dev libavahi-client-dev
+              libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
+              libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
+              libxslt1-dev libudfread-dev libplist-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=x11
               -DAPP_RENDER_SYSTEM=gl
@@ -117,6 +122,11 @@ jobs:
               libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
               libgbm-dev libwayland-dev wayland-protocols waylandpp-dev
               libxkbcommon-dev libegl-dev libgles2-mesa-dev libgl1-mesa-dri
+              libva-dev libpipewire-0.3-dev libpulse-dev libcec-dev
+              libbluray-dev libbluetooth-dev libudev-dev libavahi-client-dev
+              libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
+              libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
+              libxslt1-dev libudfread-dev libplist-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=wayland
               -DAPP_RENDER_SYSTEM=gles
@@ -142,6 +152,11 @@ jobs:
               libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
               libxkbcommon-dev libegl-dev libegl1 libegl-mesa0 libgles2-mesa-dev
               libgl1-mesa-dri libinput-dev libudev-dev libdisplay-info-dev libgbm-dev
+              libva-dev libpipewire-0.3-dev libpulse-dev libcec-dev
+              libbluray-dev libbluetooth-dev libavahi-client-dev
+              libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
+              libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
+              libxslt1-dev libudfread-dev libplist-dev
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=gbm
               -DAPP_RENDER_SYSTEM=gles
