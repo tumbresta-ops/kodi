@@ -62,7 +62,7 @@ jobs:
           make -C xbmc/tools/depends/target/binary-addons \
             -j"$(nproc)" \
             PREFIX=/usr \
-            ADDONS="pvr.iptvsimple inputstream.* vfs.*" \
+            ADDONS="inputstream.adaptive" \
             EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
             PACKAGE=1 V=1 VERBOSE=1
 
