@@ -214,32 +214,13 @@ jobs:
       - name: Build Kodi
         run: cmake --build build -- -j"$(nproc)"
 
+      # Entah kenapa ini di skip
       - name: Build binary addons
-        if: ${{ inputs.build_binary_addons != false }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_binary_addons }}
         uses: ./.github/actions/build-binary-addons
         with:
           addons: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
           make-args: "PREFIX=${{ github.workspace }}/build-addons"
-
-      # TEST
-      - name: Inspect binary addon installation
-        if: ${{ inputs.build_binary_addons != false }}
-        shell: bash
-        run: |
-          echo "=== Installed add-on files ==="
-          if [ -d "${{ github.workspace }}/build-addons" ]; then
-            find "${{ github.workspace }}/build-addons" -type f | sort
-          else
-            echo "No build-addons directory found"
-          fi
-
-          echo "=== Add-on build summary files ==="
-          for file in kodi/cmake/addons/.success kodi/cmake/addons/.failure; do
-            if [ -f "$file" ]; then
-              echo "--- $file"
-              cat "$file"
-            fi
-          done
 
       - name: Package with CPack (.deb)
         working-directory: build
