@@ -11,7 +11,8 @@ inputs:
     description: >
       Space-separated add-on IDs or regular expressions (ADDONS).
     required: false
-    default: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
+    default: "inputstream.adaptive"
+    #default: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
 
   make-args:
     description: >
