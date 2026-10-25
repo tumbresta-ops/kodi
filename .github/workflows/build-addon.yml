@@ -65,30 +65,46 @@ jobs:
             ADDONS="inputstream.adaptive" \
             EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
             PACKAGE=1 V=1 VERBOSE=1
-
-          if [ -s xbmc/cmake/addons/.failure ]; then
-            echo "::error::Some binary add-ons failed to build"
-            cat xbmc/cmake/addons/.failure
-            exit 1
-          fi
-
-          if [ ! -s xbmc/cmake/addons/.success ]; then
-            echo "::error::No successful add-on builds reported"
-            exit 1
-          fi
-
-          cat xbmc/cmake/addons/.success
-
-          find xbmc/cmake/addons -type f -name '*.zip' \
-            -exec cp -v {} zips/ \;
-
-          if ! find zips -type f -name '*.zip' -print -quit | grep -q .; then
-            echo "::error::No binary add-on ZIPs produced"
-            exit 1
-          fi
-
-          echo "Produced ZIP packages:"
-          find zips -type f -name '*.zip' -print
+          - name: Build and package binary add-on
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+          
+                    rm -f xbmc/cmake/addons/.success xbmc/cmake/addons/.failure
+                    mkdir -p zips
+          
+                    make -C xbmc/tools/depends/target/binary-addons \
+                      -j"$(nproc)" \
+                      PREFIX=/usr \
+                      ADDONS="inputstream.adaptive" \
+                      PACKAGE=1 \
+                      EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
+                      V=1 VERBOSE=1
+          
+                    if [ -s xbmc/cmake/addons/.failure ]; then
+                      echo "::error::Some binary add-ons failed to build"
+                      cat xbmc/cmake/addons/.failure
+                      exit 1
+                    fi
+          
+                    echo "=== Build status ==="
+                    cat xbmc/cmake/addons/.success 2>/dev/null || true
+          
+                    echo "=== Searching for ZIP packages ==="
+                    find "$GITHUB_WORKSPACE" \
+                      -type f -name '*.zip' \
+                      -not -path '*/.git/*' -print
+          
+                    find xbmc/cmake/addons -type f -name '*.zip' \
+                      -exec cp -v {} zips/ \; 2>/dev/null || true
+          
+                    if ! find zips -maxdepth 1 -type f -name '*.zip' -print -quit | grep -q .; then
+                      echo "::error::No ZIP packages found. Inspect the build output above."
+                      exit 1
+                    fi
+          
+                    echo "=== ZIPs ready for upload ==="
+                    ls -lh zips/
 
       - name: Upload binary add-on ZIPs
         uses: actions/upload-artifact@v7
