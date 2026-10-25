@@ -1,4 +1,4 @@
-name: Build Binary Add-ons — Linux Piers
+name: Build Binary Add-ons — Piers
 
 on:
   workflow_dispatch:
@@ -13,6 +13,11 @@ on:
         required: true
         type: string
         default: "Piers"
+      addons:
+        description: "Addon IDs/patterns, separated by spaces"
+        required: true
+        type: string
+        default: "inputstream.adaptive"
 
   workflow_call:
     inputs:
@@ -26,6 +31,11 @@ on:
         required: false
         type: string
         default: "Piers"
+      addons:
+        description: "Addon IDs/patterns, separated by spaces"
+        required: false
+        type: string
+        default: "inputstream.* pvr.iptvsimple"
 
 permissions:
   contents: read
@@ -66,24 +76,117 @@ jobs:
             zip \
             zlib1g-dev
 
-      - name: Build and package binary add-on
+      - name: Resolve, build and package add-ons
         shell: bash
+        env:
+          ADDON_PATTERNS: ${{ inputs.addons }}
         run: |
           set -euo pipefail
 
           ADDON_BUILD_DIR="xbmc/tools/depends/target/binary-addons"
           ADDON_STATUS_DIR="xbmc/cmake/addons"
+          ADDON_SOURCE_DIR="xbmc"
 
           rm -f \
             "${ADDON_STATUS_DIR}/.success" \
             "${ADDON_STATUS_DIR}/.failure"
 
+          rm -rf "${GITHUB_WORKSPACE}/zips"
           mkdir -p "${GITHUB_WORKSPACE}/zips"
+
+          if [[ -z "${ADDON_PATTERNS//[[:space:]]/}" ]]; then
+            echo "::error::No add-on patterns specified"
+            exit 1
+          fi
+
+          # Discover add-on IDs from addon.xml files.
+          python3 - <<'PY' > "${RUNNER_TEMP}/available-addons.txt"
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          root = pathlib.Path("xbmc")
+          ignored = {
+              ".git", "build", "cmake-build-debug",
+              "cmake-build-release", "tools"
+          }
+
+          found = set()
+
+          for xml in root.rglob("addon.xml"):
+              if any(part in ignored for part in xml.parts):
+                  continue
+
+              try:
+                  tree = ET.parse(xml)
+                  addon_id = tree.getroot().get("id")
+                  if addon_id:
+                      found.add(addon_id)
+              except (ET.ParseError, OSError):
+                  continue
+
+          for addon_id in sorted(found):
+              print(addon_id)
+          PY
+
+          # Expand wildcard patterns against discovered addon IDs.
+          python3 - \
+            "${ADDON_PATTERNS}" \
+            "${RUNNER_TEMP}/available-addons.txt" \
+            "${RUNNER_TEMP}/selected-addons.txt" <<'PY'
+          import fnmatch
+          import pathlib
+          import sys
+
+          patterns = sys.argv[1].split()
+          available_file = pathlib.Path(sys.argv[2])
+          output_file = pathlib.Path(sys.argv[3])
+
+          available = available_file.read_text().splitlines()
+          selected = []
+          missing = []
+
+          for pattern in patterns:
+              matches = [
+                  addon for addon in available
+                  if fnmatch.fnmatchcase(addon, pattern)
+              ]
+
+              if not matches:
+                  missing.append(pattern)
+                  continue
+
+              for addon in matches:
+                  if addon not in selected:
+                      selected.append(addon)
+
+          if missing:
+              print(
+                  "::error::No matching addon IDs for: "
+                  + ", ".join(missing)
+              )
+              sys.exit(1)
+
+          if not selected:
+              print("::error::No add-ons selected")
+              sys.exit(1)
+
+          output_file.write_text("\n".join(selected) + "\n")
+
+          print("=== Resolved add-ons ===")
+          for addon in selected:
+              print(addon)
+          PY
+
+          # Convert the resolved list into the space-separated Make argument.
+          ADDONS="$(paste -sd ' ' "${RUNNER_TEMP}/selected-addons.txt")"
+
+          echo "=== Building add-ons ==="
+          printf '%s\n' "${ADDONS}"
 
           make -C "${ADDON_BUILD_DIR}" \
             -j"$(nproc)" \
             PREFIX=/usr \
-            ADDONS="inputstream.adaptive" \
+            ADDONS="${ADDONS}" \
             PACKAGE=1 \
             EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
             V=1 \
@@ -102,33 +205,45 @@ jobs:
             echo "::warning::No .success status file found"
           fi
 
-          echo "=== Searching for ZIP packages ==="
+          # Collect only Kodi addon packages; ignore unrelated ZIP fixtures.
+          declare -A copied=()
+          total=0
 
-          find "${GITHUB_WORKSPACE}/xbmc" \
-            -type f \
-            -name '*.zip' \
-            -not -path '*/.git/*' \
-            -print
+          while IFS= read -r addon; do
+            echo "=== Collecting package: ${addon} ==="
 
-          find "${GITHUB_WORKSPACE}/xbmc" \
-            -type f \
-            -name '*.zip' \
-            -not -path '*/.git/*' \
-            -exec cp -v -n {} "${GITHUB_WORKSPACE}/zips/" \;
+            mapfile -t packages < <(
+              find "${GITHUB_WORKSPACE}/xbmc" \
+                -type f \
+                -name "addon-${addon}-*-linux.zip" \
+                -not -path '*/.git/*'
+            )
 
-          echo "=== Verifying ZIP packages ==="
+            if [[ ${#packages[@]} -eq 0 ]]; then
+              echo "::error::No Linux ZIP package found for '${addon}'"
+              exit 1
+            fi
 
-          if ! find "${GITHUB_WORKSPACE}/zips" \
-            -maxdepth 1 \
-            -type f \
-            -name '*.zip' \
-            -print -quit | grep -q .; then
-            echo "::error::No binary add-on ZIP packages were generated"
-            echo "Inspect the build log and Kodi packaging targets."
+            for package in "${packages[@]}"; do
+              if [[ -z "${copied[$package]+x}" ]]; then
+                cp -v "$package" "${GITHUB_WORKSPACE}/zips/"
+                copied["$package"]=1
+                ((total += 1))
+              fi
+            done
+          done < "${RUNNER_TEMP}/selected-addons.txt"
+
+          if [[ "$total" -eq 0 ]]; then
+            echo "::error::No add-on ZIP packages collected"
             exit 1
           fi
 
-          ls -lh "${GITHUB_WORKSPACE}/zips"
+          echo "=== Final packages ==="
+          find "${GITHUB_WORKSPACE}/zips" \
+            -maxdepth 1 \
+            -type f \
+            -name '*.zip' \
+            -printf '%f\n'
 
       - name: Upload binary add-on ZIPs
         uses: actions/upload-artifact@v7
@@ -140,4 +255,3 @@ jobs:
           compression-level: 6
           overwrite: false
           include-hidden-files: false
-          
