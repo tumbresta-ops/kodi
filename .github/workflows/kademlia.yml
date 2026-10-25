@@ -1,0 +1,50 @@
+name: Build Kodi Piers (Kademlia)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_platform:
+        description: 'Target windowing platform (x11, wayland, gbm, or all)'
+        required: true
+        type: choice
+        default: 'x11'
+        options:
+          - 'x11'
+          - 'wayland'
+          - 'gbm'
+          - 'all'
+      configuration:
+        description: 'Build configuration (Release or Debug)'
+        required: true
+        type: choice
+        default: 'Release'
+        options:
+          - 'Release'
+          - 'Debug'
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '.github/workflows/kademlia.yml'
+      - '.github/workflows/build-linux.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/kademlia.yml'
+      - '.github/workflows/build-linux.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Kademlia Kodi
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      target_platform: ${{ inputs.target_platform || 'x11' }}
+      configuration: ${{ inputs.configuration || 'Release' }}
+      kodi_repo: tumbresta-ops/xbmc
+      kodi_ref: Piers
+      build_binary_addons: false
+      skip_binary_addons: true
+      artifact_prefix: kodi-kademlia

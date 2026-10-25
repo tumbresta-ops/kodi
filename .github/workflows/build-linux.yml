@@ -36,6 +36,48 @@ on:
         required: false
         type: boolean
         default: true
+      artifact_prefix:
+        description: 'Prefix for the uploaded package artifact'
+        required: false
+        type: string
+        default: 'kodi'
+  workflow_call:
+    inputs:
+      target_platform:
+        description: 'Target windowing platform (x11, wayland, gbm, or all)'
+        required: false
+        type: string
+        default: 'x11'
+      configuration:
+        description: 'Build configuration (Release or Debug)'
+        required: false
+        type: string
+        default: 'Release'
+      kodi_repo:
+        description: 'Kodi repository to clone'
+        required: false
+        type: string
+        default: 'xbmc/xbmc'
+      kodi_ref:
+        description: 'Kodi branch/ref to clone'
+        required: false
+        type: string
+        default: 'Piers'
+      build_binary_addons:
+        description: 'Build binary addons (e.g. peripheral.joystick)'
+        required: false
+        type: boolean
+        default: true
+      artifact_prefix:
+        description: 'Prefix for the uploaded package artifact'
+        required: false
+        type: string
+        default: 'kodi'
+      skip_binary_addons:
+        description: 'Skip building binary addons'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -216,7 +258,7 @@ jobs:
 
       # Entah kenapa ini di skip
       - name: Build binary addons
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_binary_addons }}
+        if: ${{ !inputs.skip_binary_addons && (github.event_name != 'workflow_dispatch' || inputs.build_binary_addons) }}
         uses: ./.github/actions/build-binary-addons
         with:
           #addons: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
@@ -240,7 +282,7 @@ jobs:
       - name: Upload Debian packages (.deb)
         uses: actions/upload-artifact@v4
         with:
-          name: kodi-deb-linux-${{ matrix.platform }}-${{ runner.arch }}
+          name: ${{ inputs.artifact_prefix || 'kodi' }}-deb-linux-${{ matrix.platform }}-${{ runner.arch }}
           path: dist/*.deb
           if-no-files-found: error
           retention-days: 14

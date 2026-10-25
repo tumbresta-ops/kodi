@@ -5,6 +5,7 @@ Repositori ini adalah **CI Workflow Runner** untuk mengompilasi **Kodi** langsun
 ## File yang Tersedia
 
 - [`.github/workflows/build-linux.yml`](.github/workflows/build-linux.yml): Workflow build Kodi Linux (x11, wayland, gbm).
+- [`.github/workflows/kademlia.yml`](.github/workflows/kademlia.yml): Workflow build Kodi Piers dengan Kademlia dari [`tumbresta-ops/xbmc`](https://github.com/tumbresta-ops/xbmc/tree/Piers).
 - [`.github/workflows/build-android.yml`](.github/workflows/build-android.yml): Workflow build Kodi Android (arm64-v8a / arm8a dan armeabi-v7a / arm7a).
 
 ### Composite Actions Modular (`.github/actions/`):
@@ -51,3 +52,5 @@ Paket aplikasi Android (`.apk`) siap pasang.
    - `kodi_repo`: Default `xbmc/xbmc`.
    - `kodi_ref`: Default `Piers`.
 5. Setelah build selesai, unduh file `.deb` atau `.apk` dari bagian **Artifacts**.
+
+Untuk membangun versi Kademlia, pilih workflow **Build Kodi Piers (Kademlia)**. Workflow ini mengambil branch `Piers` dari `tumbresta-ops/xbmc` dan menghasilkan paket Linux `.deb`.
