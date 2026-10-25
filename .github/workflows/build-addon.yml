@@ -2,7 +2,29 @@ name: Build Binary Add-ons — Linux Piers
 
 on:
   workflow_dispatch:
+    inputs:
+      kodi_repo:
+        description: "Upstream Kodi repository"
+        required: true
+        type: string
+        default: "xbmc/xbmc"
+      kodi_ref:
+        description: "Upstream Kodi branch or ref"
+        required: true
+        type: string
+        default: "Piers"
   workflow_call:
+    inputs:
+      kodi_repo:
+        description: "Upstream Kodi repository"
+        required: false
+        type: string
+        default: "xbmc/xbmc"
+      kodi_ref:
+        description: "Upstream Kodi branch or ref"
+        required: false
+        type: string
+        default: "Piers"
 
 permissions:
   contents: read
@@ -14,11 +36,11 @@ jobs:
     timeout-minutes: 180
 
     steps:
-      - name: Checkout Kodi Piers
+      - name: Checkout Kodi
         uses: actions/checkout@v7
         with:
-          repository: xbmc/xbmc
-          ref: 22.0-Piers_rc1
+          repository: ${{ inputs.kodi_repo }}
+          ref: ${{ inputs.kodi_ref }}
           path: xbmc
 
       - name: Install build dependencies
@@ -50,19 +72,17 @@ jobs:
           fi
 
           if [ ! -s xbmc/cmake/addons/.success ]; then
-            echo "::error::Kodi did not report any successful add-on builds"
+            echo "::error::No successful add-on builds reported"
             exit 1
           fi
 
           cat xbmc/cmake/addons/.success
 
-          if [ -d xbmc/cmake/addons/build/zips ]; then
-            cp -v xbmc/cmake/addons/build/zips/*.zip zips/ 2>/dev/null || true
-          fi
+          find xbmc/cmake/addons -type f -name '*.zip' \
+            -exec cp -v {} zips/ \;
 
           if ! find zips -type f -name '*.zip' -print -quit | grep -q .; then
-            echo "::error::No binary add-on ZIPs were produced"
-            find xbmc -type f -name '*.zip' -print
+            echo "::error::No binary add-on ZIPs produced"
             exit 1
           fi
 
