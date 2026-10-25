@@ -12,11 +12,11 @@ inputs:
       Space-separated add-on IDs or regular expressions (ADDONS).
     required: false
     default: "inputstream.adaptive"
-    #default: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
+    #default: "inputstream.adaptive inputstream.ffmpegdirect inputstream.rtmp pvr.iptvsimple""
 
   make-args:
     description: >
-      Extra make variables, for example PREFIX=/path/to/staging
+      Extra make variables, for example PREFIX=/usr
       for a native Linux build.
     required: false
     default: ""
