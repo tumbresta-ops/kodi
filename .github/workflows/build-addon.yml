@@ -1,0 +1,78 @@
+name: Build Binary Add-ons — Linux Piers
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Linux x86_64 — Kodi Piers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout Kodi Piers
+        uses: actions/checkout@v7
+        with:
+          repository: xbmc/xbmc
+          ref: 22.0-Piers_rc1
+          path: xbmc
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake git ninja-build \
+            autoconf automake autopoint libtool pkg-config \
+            python3-dev curl unzip zip zlib1g-dev
+
+      - name: Build and package binary add-ons
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -f xbmc/cmake/addons/.success xbmc/cmake/addons/.failure
+          mkdir -p zips
+
+          make -C xbmc/tools/depends/target/binary-addons \
+            -j"$(nproc)" \
+            ADDONS="pvr.iptvsimple inputstream.* vfs.*" \
+            EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
+            PACKAGE=1 V=1 VERBOSE=1
+
+          if [ -s xbmc/cmake/addons/.failure ]; then
+            echo "::error::Some binary add-ons failed to build"
+            cat xbmc/cmake/addons/.failure
+            exit 1
+          fi
+
+          if [ ! -s xbmc/cmake/addons/.success ]; then
+            echo "::error::Kodi did not report any successful add-on builds"
+            exit 1
+          fi
+
+          cat xbmc/cmake/addons/.success
+
+          if [ -d xbmc/cmake/addons/build/zips ]; then
+            cp -v xbmc/cmake/addons/build/zips/*.zip zips/ 2>/dev/null || true
+          fi
+
+          if ! find zips -type f -name '*.zip' -print -quit | grep -q .; then
+            echo "::error::No binary add-on ZIPs were produced"
+            find xbmc -type f -name '*.zip' -print
+            exit 1
+          fi
+
+          echo "Produced ZIP packages:"
+          find zips -type f -name '*.zip' -print
+
+      - name: Upload binary add-on ZIPs
+        uses: actions/upload-artifact@v7
+        with:
+          name: binary-addons-linux-x86_64-piers
+          path: zips/*.zip
+          if-no-files-found: error
+          retention-days: 14
