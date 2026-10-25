@@ -219,7 +219,8 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_binary_addons }}
         uses: ./.github/actions/build-binary-addons
         with:
-          addons: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
+          #addons: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
+          addons: "inputstream.adaptive*"
           make-args: "PREFIX=${{ github.workspace }}/build-addons"
 
       - name: Package with CPack (.deb)
