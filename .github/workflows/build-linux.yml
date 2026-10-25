@@ -83,19 +83,16 @@ jobs:
               build-essential cmake gawk gperf gettext libtool meson nasm
               ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
               dpkg-dev fakeroot lsb-release
-            
-              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
+              libass-dev libcurl4-openssl-dev libexiv2-dev
               libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
               libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
               libtinyxml-dev libtinyxml2-dev zlib1g-dev
               libcdio-dev libcdio++-dev libgtest-dev libgif-dev libjpeg-dev
               nlohmann-json3-dev libmicrohttpd-dev libunistring-dev
               libspdlog-dev libcrossguid-dev
-            
               libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
               libgl-dev libegl-dev libegl1-mesa-dev libglu1-mesa-dev
               libgl1-mesa-dri libx11-dev libxext-dev libxrandr-dev
-            
               libva-dev libvdpau-dev libpipewire-0.3-dev libpulse-dev
               libcec-dev libbluray-dev libbluetooth-dev libudev-dev
               libavahi-client-dev libavahi-common-dev
@@ -103,7 +100,6 @@ jobs:
               liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
               libxslt1-dev libudfread-dev libplist-dev
               libiso9660++-dev libiso9660-dev libp8-platform-dev
-             
             cmake_flags: >-
               -DCORE_PLATFORM_NAME=x11
               -DAPP_RENDER_SYSTEM=gl
