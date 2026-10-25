@@ -35,7 +35,7 @@ on:
         description: "Addon IDs/patterns, separated by spaces"
         required: false
         type: string
-        default: "inputstream.* pvr.iptvsimple"
+        default: "inputstream.adaptive pvr.iptvsimple"
 
 permissions:
   contents: read
