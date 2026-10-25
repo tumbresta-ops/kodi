@@ -35,8 +35,8 @@ on:
         description: "Addon IDs/patterns, separated by spaces"
         required: false
         type: string
-        default: "inputstream.adaptive pvr.iptvsimple"
-
+        default: "inputstream.adaptive inputstream.ffmpegdirect inputstream.rtmp pvr.iptvsimple"
+        
 permissions:
   contents: read
 
@@ -85,8 +85,9 @@ jobs:
 
           ADDON_BUILD_DIR="xbmc/tools/depends/target/binary-addons"
           ADDON_STATUS_DIR="xbmc/cmake/addons"
-          ADDON_SOURCE_DIR="xbmc"
+          SELECTED_FILE="${RUNNER_TEMP}/selected-addons.txt"
 
+          mkdir -p "${ADDON_STATUS_DIR}"
           rm -f \
             "${ADDON_STATUS_DIR}/.success" \
             "${ADDON_STATUS_DIR}/.failure"
@@ -99,57 +100,49 @@ jobs:
             exit 1
           fi
 
-          # Discover add-on IDs from addon.xml files.
-          python3 - <<'PY' > "${RUNNER_TEMP}/available-addons.txt"
-          import pathlib
-          import xml.etree.ElementTree as ET
-
-          root = pathlib.Path("xbmc")
-          ignored = {
-              ".git", "build", "cmake-build-debug",
-              "cmake-build-release", "tools"
-          }
-
-          found = set()
-
-          for xml in root.rglob("addon.xml"):
-              if any(part in ignored for part in xml.parts):
-                  continue
-
-              try:
-                  tree = ET.parse(xml)
-                  addon_id = tree.getroot().get("id")
-                  if addon_id:
-                      found.add(addon_id)
-              except (ET.ParseError, OSError):
-                  continue
-
-          for addon_id in sorted(found):
-              print(addon_id)
-          PY
-
-          # Expand wildcard patterns against discovered addon IDs.
+          # Discover available add-on directories in the binary-addons
+          # build system. Explicit IDs are also accepted.
           python3 - \
             "${ADDON_PATTERNS}" \
-            "${RUNNER_TEMP}/available-addons.txt" \
-            "${RUNNER_TEMP}/selected-addons.txt" <<'PY'
+            "${ADDON_BUILD_DIR}" \
+            "${SELECTED_FILE}" <<'PY'
           import fnmatch
           import pathlib
           import sys
 
           patterns = sys.argv[1].split()
-          available_file = pathlib.Path(sys.argv[2])
-          output_file = pathlib.Path(sys.argv[3])
+          root = pathlib.Path(sys.argv[2])
+          output = pathlib.Path(sys.argv[3])
 
-          available = available_file.read_text().splitlines()
+          if not root.is_dir():
+              print(f"::error::Addon build directory not found: {root}")
+              sys.exit(1)
+
+          available = set()
+
+          for path in root.iterdir():
+              if not path.is_dir():
+                  continue
+
+              if (
+                  (path / "CMakeLists.txt").exists()
+                  or (path / "addon.xml.in").exists()
+                  or (path / "CMakeLists.txt.in").exists()
+              ):
+                  available.add(path.name)
+
           selected = []
           missing = []
 
           for pattern in patterns:
-              matches = [
-                  addon for addon in available
-                  if fnmatch.fnmatchcase(addon, pattern)
-              ]
+              if any(char in pattern for char in "*?["):
+                  matches = sorted(
+                      addon for addon in available
+                      if fnmatch.fnmatchcase(addon, pattern)
+                  )
+              else:
+                  # Explicit IDs may be fetched or managed by Make.
+                  matches = [pattern]
 
               if not matches:
                   missing.append(pattern)
@@ -161,7 +154,7 @@ jobs:
 
           if missing:
               print(
-                  "::error::No matching addon IDs for: "
+                  "::error::No matching add-on directories for: "
                   + ", ".join(missing)
               )
               sys.exit(1)
@@ -170,15 +163,14 @@ jobs:
               print("::error::No add-ons selected")
               sys.exit(1)
 
-          output_file.write_text("\n".join(selected) + "\n")
+          output.write_text("\n".join(selected) + "\n")
 
-          print("=== Resolved add-ons ===")
+          print("=== Selected add-ons ===")
           for addon in selected:
               print(addon)
           PY
 
-          # Convert the resolved list into the space-separated Make argument.
-          ADDONS="$(paste -sd ' ' "${RUNNER_TEMP}/selected-addons.txt")"
+          ADDONS="$(paste -sd ' ' "${SELECTED_FILE}")"
 
           echo "=== Building add-ons ==="
           printf '%s\n' "${ADDONS}"
@@ -205,12 +197,12 @@ jobs:
             echo "::warning::No .success status file found"
           fi
 
-          # Collect only Kodi addon packages; ignore unrelated ZIP fixtures.
+          # Collect only Kodi addon Linux ZIPs; ignore ZIP test fixtures.
           declare -A copied=()
           total=0
 
           while IFS= read -r addon; do
-            echo "=== Collecting package: ${addon} ==="
+            echo "=== Collecting: ${addon} ==="
 
             mapfile -t packages < <(
               find "${GITHUB_WORKSPACE}/xbmc" \
@@ -231,7 +223,7 @@ jobs:
                 ((total += 1))
               fi
             done
-          done < "${RUNNER_TEMP}/selected-addons.txt"
+          done < "${SELECTED_FILE}"
 
           if [[ "$total" -eq 0 ]]; then
             echo "::error::No add-on ZIP packages collected"
