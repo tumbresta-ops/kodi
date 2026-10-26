@@ -92,116 +92,32 @@ permissions:
   contents: read
 
 jobs:
+  define-matrix:
+    name: Prepare build matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Calculate matrix platforms
+        id: set-matrix
+        run: |
+          TARGET="${{ inputs.target_platform || 'x11' }}"
+          if [ "$TARGET" = "all" ]; then
+            PLATFORMS='["x11", "wayland", "gbm"]'
+          else
+            PLATFORMS="[\"$TARGET\"]"
+          fi
+          echo "matrix=$PLATFORMS" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build Linux (${{ matrix.platform }})
-    if: ${{ (inputs.target_platform || 'x11') == 'all' || (inputs.target_platform || 'x11') == matrix.platform }}
+    needs: define-matrix
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        platform: [x11, wayland, gbm]
-        include:
-          - platform: x11
-            render: gl
-            packages: >-
-              build-essential cmake gawk gperf gettext libtool meson nasm
-              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
-              dpkg-dev fakeroot lsb-release
-              libass-dev libcurl4-openssl-dev libexiv2-dev
-              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
-              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
-              libtinyxml-dev libtinyxml2-dev zlib1g-dev
-              libcdio-dev libcdio++-dev libgtest-dev libgif-dev libjpeg-dev
-              nlohmann-json3-dev libmicrohttpd-dev libunistring-dev
-              libspdlog-dev libcrossguid-dev
-              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
-              libgl-dev libegl-dev libegl1-mesa-dev libglu1-mesa-dev
-              libgl1-mesa-dri libx11-dev libxext-dev libxrandr-dev
-              libva-dev libvdpau-dev libpipewire-0.3-dev libpulse-dev
-              libcec-dev libbluray-dev libbluetooth-dev libudev-dev
-              libavahi-client-dev libavahi-common-dev
-              libavahi-compat-libdnssd-dev libsmbclient-dev libnfs-dev
-              liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev
-              libiso9660++-dev libiso9660-dev libp8-platform-dev
-            cmake_flags: >-
-              -DCORE_PLATFORM_NAME=x11
-              -DAPP_RENDER_SYSTEM=gl
-              -DENABLE_INTERNAL_FFMPEG=ON
-              -DENABLE_INTERNAL_TAGLIB=ON
-              -DENABLE_INTERNAL_SWIG=ON
-              -DENABLE_INTERNAL_FLATBUFFERS=ON
-              -DENABLE_INTERNAL_DAV1D=ON
-              -DENABLE_INTERNAL_CROSSGUID=ON
-              -DENABLE_INTERNAL_CEC=ON
-              -DENABLE_INTERNAL_FMT=ON
-              -DENABLE_INTERNAL_SPDLOG=ON
-              -DENABLE_INTERNAL_EXIV2=ON
-  
-          - platform: wayland
-            render: gles
-            packages: >-
-              build-essential cmake gawk gperf gettext libtool meson nasm
-              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
-              dpkg-dev fakeroot lsb-release
-              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
-              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
-              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
-              libtinyxml-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
-              libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
-              libunistring-dev libspdlog-dev libtinyxml2-dev libcrossguid-dev
-              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
-              libgbm-dev libwayland-dev wayland-protocols waylandpp-dev
-              libxkbcommon-dev libegl-dev libgles2-mesa-dev libgl1-mesa-dri
-              libva-dev libpipewire-0.3-dev libpulse-dev libcec-dev
-              libbluray-dev libbluetooth-dev libudev-dev libavahi-client-dev
-              libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
-              libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev libiso9660++-dev libiso9660-dev
-              libp8-platform-dev
-            cmake_flags: >-
-              -DCORE_PLATFORM_NAME=wayland
-              -DAPP_RENDER_SYSTEM=gles
-              -DENABLE_INTERNAL_FFMPEG=ON
-              -DENABLE_INTERNAL_TAGLIB=ON
-              -DENABLE_INTERNAL_SWIG=ON
-              -DENABLE_INTERNAL_FLATBUFFERS=ON
-              -DENABLE_INTERNAL_DAV1D=ON
-              -DENABLE_INTERNAL_CROSSGUID=ON
-              -DENABLE_INTERNAL_CEC=ON
-
-          - platform: gbm
-            render: gles
-            packages: >-
-              build-essential cmake gawk gperf gettext libtool meson nasm
-              ninja-build pkg-config bison python3-dev unzip zip ccache uuid-dev
-              dpkg-dev fakeroot lsb-release
-              libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
-              libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev
-              libharfbuzz-dev liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev
-              libtinyxml-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
-              libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
-              libunistring-dev libspdlog-dev libtinyxml2-dev libcrossguid-dev
-              libdbus-1-dev libasound2-dev libdav1d-dev libdrm-dev
-              libxkbcommon-dev libegl-dev libegl1 libegl-mesa0 libgles2-mesa-dev
-              libgl1-mesa-dri libinput-dev libudev-dev libdisplay-info-dev libgbm-dev
-              libva-dev libpipewire-0.3-dev libpulse-dev libcec-dev
-              libbluray-dev libbluetooth-dev libavahi-client-dev
-              libavahi-common-dev libavahi-compat-libdnssd-dev libsmbclient-dev
-              libnfs-dev liblcms2-dev libcap-dev liblirc-dev libusb-1.0-0-dev
-              libxslt1-dev libudfread-dev libplist-dev libiso9660++-dev libiso9660-dev
-              libp8-platform-dev
-            cmake_flags: >-
-              -DCORE_PLATFORM_NAME=gbm
-              -DAPP_RENDER_SYSTEM=gles
-              -DENABLE_INTERNAL_FFMPEG=ON
-              -DENABLE_INTERNAL_TAGLIB=ON
-              -DENABLE_INTERNAL_SWIG=ON
-              -DENABLE_INTERNAL_FLATBUFFERS=ON
-              -DENABLE_INTERNAL_DAV1D=ON
-              -DENABLE_INTERNAL_CROSSGUID=ON
-              -DENABLE_INTERNAL_CEC=ON
+        platform: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
 
     env:
       BUILD_CONFIG: ${{ inputs.configuration || 'Release' }}
@@ -218,10 +134,54 @@ jobs:
           path: kodi
 
       - name: Install build dependencies
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
+          common_packages=(
+            build-essential cmake gawk gperf gettext libtool meson nasm ninja-build
+            pkg-config bison python3-dev unzip zip ccache uuid-dev dpkg-dev fakeroot
+            lsb-release libass-dev libcurl4-openssl-dev libexiv2-dev libflatbuffers-dev
+            libfmt-dev libfreetype-dev libfribidi-dev libfstrcmp-dev libharfbuzz-dev
+            liblzo2-dev libpcre2-dev libssl-dev libsqlite3-dev libtinyxml-dev
+            libtinyxml2-dev zlib1g-dev libcdio-dev libcdio++-dev libgtest-dev
+            libgif-dev libjpeg-dev nlohmann-json3-dev libmicrohttpd-dev
+            libunistring-dev libspdlog-dev libcrossguid-dev libdbus-1-dev
+            libasound2-dev libdav1d-dev libdrm-dev libva-dev libpipewire-0.3-dev
+            libpulse-dev libcec-dev libbluray-dev libbluetooth-dev libudev-dev
+            libavahi-client-dev libavahi-common-dev libavahi-compat-libdnssd-dev
+            libsmbclient-dev libnfs-dev liblcms2-dev libcap-dev liblirc-dev
+            libusb-1.0-0-dev libxslt1-dev libudfread-dev libplist-dev
+            libiso9660++-dev libiso9660-dev libp8-platform-dev
+          )
+
+          case "${TARGET_PLATFORM}" in
+            x11)
+              platform_packages=(
+                libgl-dev libegl-dev libegl1-mesa-dev libglu1-mesa-dev
+                libgl1-mesa-dri libx11-dev libxext-dev libxrandr-dev libvdpau-dev
+              )
+              ;;
+            wayland)
+              platform_packages=(
+                libgbm-dev libwayland-dev wayland-protocols waylandpp-dev
+                libxkbcommon-dev libegl-dev libgles2-mesa-dev libgl1-mesa-dri
+              )
+              ;;
+            gbm)
+              platform_packages=(
+                libxkbcommon-dev libegl-dev libegl1 libegl-mesa0
+                libgles2-mesa-dev libgl1-mesa-dri libinput-dev
+                libdisplay-info-dev libgbm-dev
+              )
+              ;;
+            *)
+              echo "::error::Unsupported Linux target: ${TARGET_PLATFORM}"
+              exit 1
+              ;;
+          esac
+
           sudo apt-get update
-          # shellcheck disable=SC2086
-          sudo apt-get install -y ${{ matrix.packages }}
+          sudo apt-get install -y "${common_packages[@]}" "${platform_packages[@]}"
 
       - name: Restore ccache
         uses: ./.github/actions/ccache-restore
@@ -229,12 +189,36 @@ jobs:
           key: linux-${{ matrix.platform }}-${{ runner.arch }}-${{ env.BUILD_CONFIG }}
 
       - name: Configure CMake
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
+          render_system=gles
+          cmake_flags=(
+            "-DCORE_PLATFORM_NAME=${TARGET_PLATFORM}"
+            "-DENABLE_INTERNAL_FFMPEG=ON"
+            "-DENABLE_INTERNAL_TAGLIB=ON"
+            "-DENABLE_INTERNAL_SWIG=ON"
+            "-DENABLE_INTERNAL_FLATBUFFERS=ON"
+            "-DENABLE_INTERNAL_DAV1D=ON"
+            "-DENABLE_INTERNAL_CROSSGUID=ON"
+            "-DENABLE_INTERNAL_CEC=ON"
+          )
+
+          if [ "${TARGET_PLATFORM}" = "x11" ]; then
+            render_system=gl
+            cmake_flags+=(
+              -DENABLE_INTERNAL_FMT=ON
+              -DENABLE_INTERNAL_SPDLOG=ON
+              -DENABLE_INTERNAL_EXIV2=ON
+            )
+          fi
+
           cmake -S kodi -B build \
             -DCMAKE_BUILD_TYPE="${BUILD_CONFIG}" \
             -DCMAKE_INSTALL_PREFIX=/usr \
             -DCPACK_GENERATOR=DEB \
-            ${{ matrix.cmake_flags }}
+            "-DAPP_RENDER_SYSTEM=${render_system}" \
+            "${cmake_flags[@]}"
 
       - name: Build Kodi
         run: cmake --build build -- -j"$(nproc)"
