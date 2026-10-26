@@ -47,6 +47,9 @@ jobs:
     timeout-minutes: 180
 
     steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
       - name: Checkout Kodi
         uses: actions/checkout@v7
         with:
@@ -76,101 +79,25 @@ jobs:
             zip \
             zlib1g-dev
 
-      - name: Resolve, build and package add-ons
-        shell: bash
-        env:
-          ADDON_PATTERNS: ${{ inputs.addons }}
+      - name: Build binary add-ons
+        uses: ./.github/actions/build-binary-addons
+        with:
+          kodi-dir: xbmc
+          addons: ${{ inputs.addons }}
+          make-args: "PREFIX=${{ github.workspace }}/build-addons"
+
+      - name: Package binary add-ons (.deb)
         run: |
-          set -euo pipefail
+          bash .github/scripts/package-binary-addons-deb.sh \
+            xbmc \
+            "${{ github.workspace }}/build-addons" \
+            "${{ github.workspace }}/debs"
 
-          ADDON_BUILD_DIR="xbmc/tools/depends/target/binary-addons"
-          ADDON_STATUS_DIR="xbmc/cmake/addons"
-          SUCCESS_FILE="${ADDON_STATUS_DIR}/.success"
-
-          mkdir -p "${ADDON_STATUS_DIR}"
-          rm -f \
-            "${ADDON_STATUS_DIR}/.success" \
-            "${ADDON_STATUS_DIR}/.failure"
-
-          rm -rf "${GITHUB_WORKSPACE}/zips"
-          mkdir -p "${GITHUB_WORKSPACE}/zips"
-
-          if [[ -z "${ADDON_PATTERNS//[[:space:]]/}" ]]; then
-            echo "::error::No add-on patterns specified"
-            exit 1
-          fi
-
-          echo "=== Building add-ons ==="
-          printf '%s\n' "${ADDON_PATTERNS}"
-
-          make -C "${ADDON_BUILD_DIR}" \
-            -j"$(nproc)" \
-            PREFIX=/usr \
-            ADDONS="${ADDON_PATTERNS}" \
-            PACKAGE=1 \
-            EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
-            V=1 \
-            VERBOSE=1
-
-          if [[ -s "${ADDON_STATUS_DIR}/.failure" ]]; then
-            echo "::error::Binary add-on build failed"
-            cat "${ADDON_STATUS_DIR}/.failure"
-            exit 1
-          fi
-
-          if [[ ! -s "${SUCCESS_FILE}" ]]; then
-            echo "::error::No binary add-ons were built successfully"
-            exit 1
-          fi
-
-          echo "=== Add-on build status ==="
-          cat "${SUCCESS_FILE}"
-
-          # Collect only Kodi addon Linux ZIPs; ignore ZIP test fixtures.
-          declare -A copied=()
-          total=0
-
-          while IFS= read -r addon; do
-            echo "=== Collecting: ${addon} ==="
-
-            mapfile -t packages < <(
-              find "${GITHUB_WORKSPACE}/xbmc" \
-                -type f \
-                -name "addon-${addon}-*-linux.zip" \
-                -not -path '*/.git/*'
-            )
-
-            if [[ ${#packages[@]} -eq 0 ]]; then
-              echo "::error::No Linux ZIP package found for '${addon}'"
-              exit 1
-            fi
-
-            for package in "${packages[@]}"; do
-              if [[ -z "${copied[$package]+x}" ]]; then
-                cp -v "$package" "${GITHUB_WORKSPACE}/zips/"
-                copied["$package"]=1
-                ((total += 1))
-              fi
-            done
-          done < "${SUCCESS_FILE}"
-
-          if [[ "$total" -eq 0 ]]; then
-            echo "::error::No add-on ZIP packages collected"
-            exit 1
-          fi
-
-          echo "=== Final packages ==="
-          find "${GITHUB_WORKSPACE}/zips" \
-            -maxdepth 1 \
-            -type f \
-            -name '*.zip' \
-            -printf '%f\n'
-
-      - name: Upload binary add-on ZIPs
+      - name: Upload binary add-on Debian packages
         uses: actions/upload-artifact@v7
         with:
-          name: binary-addons-linux-x86_64-piers
-          path: zips/*.zip
+          name: binary-addons-deb-linux-x86_64-piers
+          path: debs/*.deb
           if-no-files-found: error
           retention-days: 14
           compression-level: 6

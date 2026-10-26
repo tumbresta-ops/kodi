@@ -232,6 +232,14 @@ jobs:
           addons: all
           make-args: "PREFIX=${{ github.workspace }}/build-addons"
 
+      - name: Package binary add-ons (.deb)
+        if: ${{ inputs.build_binary_addons && !inputs.skip_binary_addons }}
+        run: |
+          bash .github/scripts/package-binary-addons-deb.sh \
+            kodi \
+            "${{ github.workspace }}/build-addons" \
+            "${{ github.workspace }}/dist"
+
       - name: Package with CPack (.deb)
         working-directory: build
         run: |
@@ -250,6 +258,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact_prefix || 'kodi' }}-deb-linux-${{ matrix.platform }}-${{ runner.arch }}
-          path: dist/*.deb
+          path: |
+            dist/*.deb
           if-no-files-found: error
           retention-days: 14
