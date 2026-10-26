@@ -6,6 +6,7 @@ Repositori ini adalah **CI Workflow Runner** untuk mengompilasi **Kodi** langsun
 
 - [`.github/workflows/build-linux.yml`](.github/workflows/build-linux.yml): Workflow build Kodi Linux (x11, wayland, gbm).
 - [`.github/workflows/kademlia.yml`](.github/workflows/kademlia.yml): Workflow build Kodi Piers dengan Kademlia dari [`tumbresta-ops/xbmc`](https://github.com/tumbresta-ops/xbmc/tree/Piers).
+- [`.github/workflows/build-addon.yml`](.github/workflows/build-addon.yml): Workflow build dan paket ZIP semua binary add-on Linux yang didukung.
 - [`.github/workflows/build-android.yml`](.github/workflows/build-android.yml): Workflow build Kodi Android (arm64-v8a / arm8a dan armeabi-v7a / arm7a).
 
 ### Composite Actions Modular (`.github/actions/`):
@@ -24,6 +25,8 @@ Repositori ini adalah **CI Workflow Runner** untuk mengompilasi **Kodi** langsun
 - **`x11`**: OpenGL desktop (`gl`)
 - **`wayland`**: OpenGL ES (`gles`)
 - **`gbm`**: DRM/KMS direct rendering (`gles`)
+
+Build Linux default hanya menjalankan **x11**. Pilih `all` untuk menjalankan ketiga platform.
 
 ### Output Build:
 Paket installer Debian (`.deb`) yang dapat diinstal langsung di Ubuntu/Debian (`kodi_*.deb` dan `kodi-bin_*.deb`). Hasil build diunggah otomatis ke **GitHub Artifacts** (retensi 14 hari).
@@ -53,4 +56,6 @@ Paket aplikasi Android (`.apk`) siap pasang.
    - `kodi_ref`: Default `Piers`.
 5. Setelah build selesai, unduh file `.deb` atau `.apk` dari bagian **Artifacts**.
 
-Untuk membangun versi Kademlia, pilih workflow **Build Kodi Piers (Kademlia)**. Workflow ini mengambil branch `Piers` dari `tumbresta-ops/xbmc` dan menghasilkan paket Linux `.deb`.
+Untuk membangun versi Kademlia, pilih workflow **Build Kodi Piers (Kademlia)**. Workflow ini mengambil branch `Piers` dari `tumbresta-ops/xbmc`, membangun semua binary add-on yang didukung, dan menghasilkan paket Linux `.deb`.
+
+Untuk menghasilkan ZIP binary add-on, pilih workflow **Build Binary Add-ons — Piers**. Default `addons: all` membangun semua add-on binary yang didukung di Linux; gunakan ID atau pola jika hanya ingin sebagian.
