@@ -17,7 +17,7 @@ on:
         description: "Addon IDs/patterns, separated by spaces"
         required: true
         type: string
-        default: "inputstream.adaptive"
+        default: "all"
 
   workflow_call:
     inputs:
@@ -35,8 +35,8 @@ on:
         description: "Addon IDs/patterns, separated by spaces"
         required: false
         type: string
-        default: "inputstream.adaptive inputstream.ffmpegdirect inputstream.rtmp pvr.iptvsimple"
-        
+        default: "all"
+
 permissions:
   contents: read
 
@@ -85,7 +85,7 @@ jobs:
 
           ADDON_BUILD_DIR="xbmc/tools/depends/target/binary-addons"
           ADDON_STATUS_DIR="xbmc/cmake/addons"
-          SELECTED_FILE="${RUNNER_TEMP}/selected-addons.txt"
+          SUCCESS_FILE="${ADDON_STATUS_DIR}/.success"
 
           mkdir -p "${ADDON_STATUS_DIR}"
           rm -f \
@@ -100,85 +100,13 @@ jobs:
             exit 1
           fi
 
-          # Discover available add-on directories in the binary-addons
-          # build system. Explicit IDs are also accepted.
-          python3 - \
-            "${ADDON_PATTERNS}" \
-            "${ADDON_BUILD_DIR}" \
-            "${SELECTED_FILE}" <<'PY'
-          import fnmatch
-          import pathlib
-          import sys
-
-          patterns = sys.argv[1].split()
-          root = pathlib.Path(sys.argv[2])
-          output = pathlib.Path(sys.argv[3])
-
-          if not root.is_dir():
-              print(f"::error::Addon build directory not found: {root}")
-              sys.exit(1)
-
-          available = set()
-
-          for path in root.iterdir():
-              if not path.is_dir():
-                  continue
-
-              if (
-                  (path / "CMakeLists.txt").exists()
-                  or (path / "addon.xml.in").exists()
-                  or (path / "CMakeLists.txt.in").exists()
-              ):
-                  available.add(path.name)
-
-          selected = []
-          missing = []
-
-          for pattern in patterns:
-              if any(char in pattern for char in "*?["):
-                  matches = sorted(
-                      addon for addon in available
-                      if fnmatch.fnmatchcase(addon, pattern)
-                  )
-              else:
-                  # Explicit IDs may be fetched or managed by Make.
-                  matches = [pattern]
-
-              if not matches:
-                  missing.append(pattern)
-                  continue
-
-              for addon in matches:
-                  if addon not in selected:
-                      selected.append(addon)
-
-          if missing:
-              print(
-                  "::error::No matching add-on directories for: "
-                  + ", ".join(missing)
-              )
-              sys.exit(1)
-
-          if not selected:
-              print("::error::No add-ons selected")
-              sys.exit(1)
-
-          output.write_text("\n".join(selected) + "\n")
-
-          print("=== Selected add-ons ===")
-          for addon in selected:
-              print(addon)
-          PY
-
-          ADDONS="$(paste -sd ' ' "${SELECTED_FILE}")"
-
           echo "=== Building add-ons ==="
-          printf '%s\n' "${ADDONS}"
+          printf '%s\n' "${ADDON_PATTERNS}"
 
           make -C "${ADDON_BUILD_DIR}" \
             -j"$(nproc)" \
             PREFIX=/usr \
-            ADDONS="${ADDONS}" \
+            ADDONS="${ADDON_PATTERNS}" \
             PACKAGE=1 \
             EXTRA_CMAKE_ARGS="-DPACKAGE_ZIP=ON -DPACKAGE_DIR=${GITHUB_WORKSPACE}/zips" \
             V=1 \
@@ -190,12 +118,13 @@ jobs:
             exit 1
           fi
 
-          echo "=== Add-on build status ==="
-          if [[ -f "${ADDON_STATUS_DIR}/.success" ]]; then
-            cat "${ADDON_STATUS_DIR}/.success"
-          else
-            echo "::warning::No .success status file found"
+          if [[ ! -s "${SUCCESS_FILE}" ]]; then
+            echo "::error::No binary add-ons were built successfully"
+            exit 1
           fi
+
+          echo "=== Add-on build status ==="
+          cat "${SUCCESS_FILE}"
 
           # Collect only Kodi addon Linux ZIPs; ignore ZIP test fixtures.
           declare -A copied=()
@@ -223,7 +152,7 @@ jobs:
                 ((total += 1))
               fi
             done
-          done < "${SELECTED_FILE}"
+          done < "${SUCCESS_FILE}"
 
           if [[ "$total" -eq 0 ]]; then
             echo "::error::No add-on ZIP packages collected"

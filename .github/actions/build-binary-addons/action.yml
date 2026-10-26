@@ -3,16 +3,18 @@ description: >
   Builds Kodi binary add-ons through tools/depends/target/binary-addons.
   Supports PVR, InputStream, VFS, and peripheral add-ons.
   Reports build results in the GitHub Actions step summary.
-  Individual add-on failures are warnings, matching the existing
-  Jenkins-style behavior.
 
 inputs:
+  kodi-dir:
+    description: Path to the checked-out Kodi source tree.
+    required: false
+    default: "."
+
   addons:
     description: >
       Space-separated add-on IDs or regular expressions (ADDONS).
     required: false
-    default: "inputstream.adaptive"
-    #default: "inputstream.adaptive inputstream.ffmpegdirect inputstream.rtmp pvr.iptvsimple""
+    default: "all"
 
   make-args:
     description: >
@@ -29,31 +31,37 @@ runs:
       env:
         ADDONS: ${{ inputs.addons }}
         MAKE_ARGS: ${{ inputs.make-args }}
+      working-directory: ${{ inputs.kodi-dir }}
       run: |
-        set -uo pipefail
+        set -euo pipefail
 
         rm -f cmake/addons/.success cmake/addons/.failure
 
         echo "Requested binary add-ons: ${ADDONS}"
         echo "Additional make arguments: ${MAKE_ARGS}"
 
+        read -r -a extra_make_args <<< "${MAKE_ARGS}"
         make -C tools/depends/target/binary-addons \
           -j"$(getconf _NPROCESSORS_ONLN)" \
           ADDONS="${ADDONS}" \
-          ${MAKE_ARGS} \
+          "${extra_make_args[@]}" \
           V=1 VERBOSE=1
 
-        build_status=$?
-
-        if [ "$build_status" -ne 0 ]; then
-          echo "::warning::Binary add-on build command exited with status ${build_status}"
+        if [ -s cmake/addons/.failure ]; then
+          echo "::error::Some binary add-ons failed to build:"
+          cat cmake/addons/.failure
+          exit 1
         fi
 
-        exit 0
+        if [ ! -s cmake/addons/.success ]; then
+          echo "::error::No binary add-ons were built successfully"
+          exit 1
+        fi
 
     - name: Report add-on results
       if: always()
       shell: bash
+      working-directory: ${{ inputs.kodi-dir }}
       run: |
         {
           echo "### Binary add-ons"

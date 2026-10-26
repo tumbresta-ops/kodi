@@ -92,32 +92,15 @@ permissions:
   contents: read
 
 jobs:
-  define-matrix:
-    name: Prepare build matrix
-    runs-on: ubuntu-24.04
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Calculate matrix platforms
-        id: set-matrix
-        run: |
-          TARGET="${{ inputs.target_platform || 'x11' }}"
-          if [ "$TARGET" = "all" ]; then
-            PLATFORMS='["x11", "wayland", "gbm"]'
-          else
-            PLATFORMS="[\"$TARGET\"]"
-          fi
-          echo "matrix=$PLATFORMS" >> "$GITHUB_OUTPUT"
-
   build:
     name: Build Linux (${{ matrix.platform }})
-    needs: define-matrix
+    if: ${{ (inputs.target_platform || 'x11') == 'all' || (inputs.target_platform || 'x11') == matrix.platform }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
+        platform: [x11, wayland, gbm]
         include:
           - platform: x11
             render: gl
@@ -257,12 +240,12 @@ jobs:
         run: cmake --build build -- -j"$(nproc)"
 
       # Entah kenapa ini di skip
-      - name: Build binary addons
-        if: ${{ !inputs.skip_binary_addons && (github.event_name != 'workflow_dispatch' || inputs.build_binary_addons) }}
+      - name: Build binary add-ons
+        if: ${{ inputs.build_binary_addons && !inputs.skip_binary_addons }}
         uses: ./.github/actions/build-binary-addons
         with:
-          #addons: "peripheral.joystick pvr.iptvsimple inputstream.* vfs.*"
-          addons: "inputstream.adaptive*"
+          kodi-dir: kodi
+          addons: all
           make-args: "PREFIX=${{ github.workspace }}/build-addons"
 
       - name: Package with CPack (.deb)

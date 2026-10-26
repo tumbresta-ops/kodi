@@ -45,6 +45,5 @@ jobs:
       configuration: ${{ inputs.configuration || 'Release' }}
       kodi_repo: tumbresta-ops/xbmc
       kodi_ref: Piers
-      build_binary_addons: false
-      skip_binary_addons: true
+      build_binary_addons: true
       artifact_prefix: kodi-kademlia
