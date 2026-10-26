@@ -35,6 +35,33 @@ on:
         required: false
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      target_abi:
+        description: 'Target Android ABI (arm64-v8a, armeabi-v7a, or all)'
+        required: false
+        type: string
+        default: 'all'
+      configuration:
+        description: 'Build configuration (Release or Debug)'
+        required: false
+        type: string
+        default: 'Release'
+      kodi_repo:
+        description: 'Kodi repository to clone'
+        required: false
+        type: string
+        default: 'xbmc/xbmc'
+      kodi_ref:
+        description: 'Kodi branch/ref to clone'
+        required: false
+        type: string
+        default: 'Piers'
+      build_binary_addons:
+        description: 'Build binary add-ons'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - main
