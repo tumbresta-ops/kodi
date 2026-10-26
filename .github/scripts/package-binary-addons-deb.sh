@@ -73,7 +73,7 @@ Version: ${addon_version}
 Section: video
 Priority: optional
 Architecture: ${architecture}
-Depends: kodi-bin (>= 2:${kodi_major}.0), kodi-bin (<< 2:$((kodi_major + 1)).0)
+Depends: kodi-bin (>= 2:${kodi_major}.0~), kodi-bin (<< 2:$((kodi_major + 1)).0)
 Maintainer: Kodi Kademlia Build <noreply@kodi.tv>
 Description: Kodi binary add-on ${addon_id}
  Binary add-on built for Kodi ${kodi_major}.x.
