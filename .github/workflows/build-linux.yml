@@ -229,7 +229,7 @@ jobs:
         uses: ./.github/actions/build-binary-addons
         with:
           kodi-dir: kodi
-          addons: all
+          addons: inputstream.adaptive
           make-args: "PREFIX=${{ github.workspace }}/build-addons"
 
       - name: Package binary add-ons (.deb)
